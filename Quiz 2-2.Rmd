@@ -1,6 +1,6 @@
 ---
 title: "Quiz 2.2"
-output: md_document
+output: html_document
 date: "2022-10-18"
 ---
 
@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 **Question 2b**
 
-For this question, we want to verify the answer we got for 2a. We expect that for any $$\alpha$$ we put in, the proportion of trials that will have a high enough $$F$$ statistic to reject the null hypothesis that $$\mu_1 = \mu_2$$.
+For this question, we want to verify the answer we got for 2a. We expect that for any $\alpha$ we put in, the proportion of trials that will have a high enough $F$ statistic to reject the null hypothesis that $\mu_1 = \mu_2$.
 ```{r}
 #Set seed
 set.seed(743358478)
@@ -64,7 +64,7 @@ for (i in 1:N) {
 #This tells us which proportion of the amount of trials would have Type I error. We expect this to be around alpha.
 length(F_stat[F_stat>threshold])/N
 ```
-This comes out to be **0.044**. This is very close to $$\alpha=0.05$$ which is exactly what we expect.
+This comes out to be **0.0501**. This is very close to $\alpha=0.05$ which is exactly what we expect.
 
 **Question 2c**
 
@@ -115,20 +115,20 @@ data.frame(mu=mu2,power=power_prediction)
 Now we can compare to part 2d to see how close this is.
 
 mu  power
-1.1	0.06628236			
-1.2	0.08763217			
-1.3	0.11500345			
-1.4	0.14923924			
-1.5	0.19093427			
-1.6	0.24029097			
-1.7	0.29699530			
-1.8	0.36014233			
-1.9	0.42823673			
-2.0	0.49928175	
+1.1	0.05516129			
+1.2	0.07082135			
+1.3	0.09742459			
+1.4	0.13545156			
+1.5	0.18509566			
+1.6	0.24593206			
+1.7	0.31667051			
+1.8	0.39506921			
+1.9	0.47805041			
+2.0	0.56200665	
 
 **Question 2d**
 
-For this question we want to find the power of this test for various values of $$\mu_2$$. We should expect that as $$\mu_2$$ gets further away from $$\mu_1$$, the power increases.
+For this question we want to find the power of this test for various values of $\mu_2$. We should expect that as $\mu_2$ gets further away from $\mu_1$, the power increases.
 ```{r}
 #Set seed
 set.seed(1269075846)
@@ -195,14 +195,14 @@ data.frame(mu=mu2,power,estimation=power_prediction)
 This is exactly in line with my prediction. It is very close to the estimation from 2c.
 
 mu  power   estimation
-1.1	0.0599	0.06628236		
-1.2	0.0830	0.08763217		
-1.3	0.1108	0.11500345		
-1.4	0.1499	0.14923924		
-1.5	0.2016	0.19093427		
-1.6	0.2443	0.24029097		
-1.7	0.3152	0.29699530		
-1.8	0.3799	0.36014233		
-1.9	0.4450	0.42823673		
-2.0	0.5266	0.49928175	
+1.1	0.0528	0.05516129		
+1.2	0.0668	0.07082135		
+1.3	0.0977	0.09742459		
+1.4	0.1357	0.13545156		
+1.5	0.1800	0.18509566		
+1.6	0.2456	0.24593206		
+1.7	0.3214	0.31667051		
+1.8	0.3985	0.39506921		
+1.9	0.4758	0.47805041		
+2.0	0.5679	0.56200665	
 
