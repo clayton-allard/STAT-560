@@ -375,20 +375,3103 @@ pre code {
 <p><strong>Question 1d</strong></p>
 <p>For this question, we want to calculate 95% confidence intervals for
 the Mean Square Prediction error between Ridge Regression and Least
-Squares regression. I expect that <span class="math display">\[\hat{\beta}_{RR}\]</span> will have less error
-than <span class="math display">\[\hat{\beta}_{LS}\]</span> when
-generalizing to new data. Although, <span class="math display">\[\hat{\beta}_{LS}\]</span> would have smaller
-error within the training set. We need to do this for sample sizes <span class="math display">\[n=20,40,..,200\]</span>. After running this for a
-very long time, it turns out that <span class="math display">\[N=10000\]</span> is too big and will take too
-long. So I have moved it down to using <span class="math display">\[N=1000\]</span>. Also, for the testing data, I
-did <span class="math display">\[10n\]</span> the amount of sample..</p>
+Squares regression. I expect that <span class="math inline">\(\hat{\beta}_{RR}\)</span> will have less error
+than <span class="math inline">\(\hat{\beta}_{LS}\)</span> when
+generalizing to new data. Although, <span class="math inline">\(\hat{\beta}_{LS}\)</span> would have smaller error
+within the training set. We need to do this for sample sizes <span class="math inline">\(n=20,40,..,200\)</span>. After running this for a
+very long time, it turns out that <span class="math inline">\(N=10000\)</span> is too big and will take too
+long. So I have moved it down to using <span class="math inline">\(N=1000\)</span>. Also, for the testing data, I did
+<span class="math inline">\(10n\)</span> the amount of sample.</p>
+<pre class="r"><code>#Set seed
+set.seed(770025884)
+
+#Setting parameters
+N = 1000
+n = seq(20, 200, by = 20)
+beta = c(1, 1, 1, -1, -1, -1, 0, 0, 0, 0)
+rho = 0.5
+
+#Setting sigma to create the autoregressive model.
+Sigma = matrix(0, nrow = length(beta), ncol = length(beta))
+for (i in 1:length(beta)) {
+  for (j in 1:length(beta)) {
+    Sigma[i, j] = rho ^ (abs(i - j))
+  }
+}
+
+#Keeping the intervals in a matrix to later convert into a data frame.
+conf_intervals = matrix(0, ncol = 2, nrow = length(n))
+
+#Going to compute the interval for every sample size n at once.
+for (j in 1:length(n)) {
+  MSPE_diff = rep(0, N)
+  for (i in 1:N) {
+    #Since we know that the signal to noise ratio is 1.
+    sig_squared = t(beta) %*% Sigma %*% beta
+    
+    #Generate training data.
+    x_train = mvnfast::rmvn(n = n[j],
+                            mu = rep(0, length(beta)),
+                            sigma = Sigma)
+    y_train = x_train %*% beta + rnorm(n[j], sd = sqrt(sig_squared))
+    
+    #Using the training data to find ridge regression estimator
+    RR_fit = glmnet::cv.glmnet(x_train, y_train, alpha = 0)
+    
+    #Use test data to compare. This also tells us the best lambda to use for ridge regression. I decided to test with 10 times the amount I did the testing with.
+    x_test = mvnfast::rmvn(n = n[j] * 10,
+                           mu = rep(0, length(beta)),
+                           sigma = Sigma)
+    y_test = x_test %*% beta + rnorm(n[j] * 10, sd = sqrt(sig_squared))
+    
+    #Predictions for both regression models.
+    RR_predictions = predict(RR_fit, newx = x_test, s = &quot;lambda.min&quot;)
+    LS_predictions = solve(t(x_test) %*% x_test) %*% t(x_test) %*% y_test
+    
+    #Taking the mean of the square differences.
+    MSPE_LS = mean((y_test - as.vector(LS_predictions)) ^ 2)
+    MSPE_RR = mean((y_test - as.vector(RR_predictions)) ^ 2)
+    
+    MSPE_diff[i] = MSPE_LS - MSPE_RR
+  }
+  
+  #By the central limit theroem, we just need the sample mean and standard deviation to create a 95% confidence interval.
+  diff_bar = mean(MSPE_diff)
+  diff_std = sd(MSPE_diff)
+  
+  #Lower and Upper bound of confidence interval.
+  conf_intervals[j, 1] = qnorm(0.025, mean = diff_bar, sd = diff_std / sqrt(N))
+  conf_intervals[j, 2] = qnorm(0.975, mean = diff_bar, sd = diff_std / sqrt(N))
+  
+}</code></pre>
+<pre><code>## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold
+
+## Warning: Option grouped=FALSE enforced in cv.glmnet, since &lt; 3 observations per
+## fold</code></pre>
+<pre class="r"><code>data.frame(n, Lower_Bound = conf_intervals[, 1], Upper_Bound = conf_intervals[, 2])</code></pre>
+<pre><code>##      n Lower_Bound Upper_Bound
+## 1   20    4.159029    4.502992
+## 2   40    6.429043    6.619683
+## 3   60    7.106729    7.240061
+## 4   80    7.491978    7.598605
+## 5  100    7.634750    7.726128
+## 6  120    7.781636    7.864387
+## 7  140    7.920022    7.998151
+## 8  160    7.998544    8.067358
+## 9  180    8.039179    8.104730
+## 10 200    8.080150    8.143028</code></pre>
 <p>This result was surprising to me at first. Seeing that the difference
 between the ridge regression and least squares regression increases as
-<span class="math display">\[n\]</span> increases was initially
+<span class="math inline">\(n\)</span> increases was initially
 unexpected. However, it made more sense as I thought about it. If we
-have more test samples, we expect that <span class="math display">\[\hat{\beta}_{RR}\]</span> will generalize better
-to all the new data than <span class="math display">\[\hat{\beta}_{LS}\]</span>. It is also expected
-that the intervals become much thinner as <span class="math display">\[n\]</span> increases.</p>
+have more test samples, we expect that <span class="math inline">\(\hat{\beta}_{RR}\)</span> will generalize better
+to all the new data than <span class="math inline">\(\hat{\beta}_{LS}\)</span>. It is also expected
+that the intervals become much thinner as <span class="math inline">\(n\)</span> increases.</p>
+<p>n lower higher 20 4.159029 4.502992<br />
+40 6.429043 6.619683<br />
+60 7.106729 7.240061<br />
+80 7.491978 7.598605<br />
+100 7.634750 7.726128<br />
+120 7.781636 7.864387<br />
+140 7.920022 7.998151<br />
+160 7.998544 8.067358<br />
+180 8.039179 8.104730<br />
+200 8.080150 8.143028</p>
 
 
 
