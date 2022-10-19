@@ -1,0 +1,62 @@
+---
+title: "Quiz 2.1"
+output: html_document
+date: "2022-10-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# install.packages("mvnfast")
+# install.packages("glmnet")
+# library("mvnf")
+# library("glmnet")
+```
+
+```{r}
+N=10000
+n=seq(20,200,by=20)
+n=200
+beta=c(1,1,1,-1,-1,-1,0,0,0,0)
+rho=0.5
+Sigma=matrix(0,nrow=length(beta),ncol=length(beta))
+
+for (i in 1:length(beta)) {
+  for (j in 1:length(beta)){
+    Sigma[i,j]=rho^(abs(i-j))
+  }
+}
+
+# for(i in 1:N){
+
+sig_squared=beta %*% Sigma %*% beta
+
+x_train=mvnfast::rmvn(n = 20, mu = rep(0, length(beta)), sigma = Sigma)
+y_train=x_train %*% beta + rnorm(20,sd = sqrt(sig_squared))
+
+RR_fit=glmnet::cv.glmnet(x_train,y_train,alpha=0)
+
+x_test=mvnfast::rmvn(n = 200, mu = rep(0, length(beta)), sigma = Sigma)
+y_test=x_test %*% beta + rnorm(200,sd=sqrt(sig_squared))
+
+RR_predictions=predict(RR_fit, newx = x_test, s="lambda.min")
+
+LS_predictions= solve(t(x_test) %*% x_test) %*% t(x_test) %*% y_test
+
+MSPE_LS=mean((y_test-as.vector(LS_predictions))^2)
+MSPE_RR=mean((y_test-as.vector(RR_predictions))^2)
+
+MSPE_diff=MSPE_LS-MSPE_RR
+MSPE_diff
+# }
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
