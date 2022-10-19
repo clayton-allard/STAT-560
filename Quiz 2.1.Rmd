@@ -15,42 +15,51 @@ knitr::opts_chunk$set(echo = TRUE)
 # library("glmnet")
 ```
 
-```{r}
-N=10000
-n=seq(20,200,by=20)
-n=200
-beta=c(1,1,1,-1,-1,-1,0,0,0,0)
-rho=0.5
-Sigma=matrix(0,nrow=length(beta),ncol=length(beta))
+```{r, include=FALSE}
+N = 100
+n = seq(20, 200, by = 20)
+j=5
+beta = c(1, 1, 1, -1, -1, -1, 0, 0, 0, 0)
+rho = 0.5
+Sigma = matrix(0, nrow = length(beta), ncol = length(beta))
 
 for (i in 1:length(beta)) {
-  for (j in 1:length(beta)){
-    Sigma[i,j]=rho^(abs(i-j))
+  for (j in 1:length(beta)) {
+    Sigma[i, j] = rho ^ (abs(i - j))
   }
 }
 
-# for(i in 1:N){
+RR_predictions=matrix(0,nrow=length(beta),ncol = N)
+LS_predictions=matrix(0,nrow=length(beta),ncol = N)
 
-sig_squared=beta %*% Sigma %*% beta
-
-x_train=mvnfast::rmvn(n = 20, mu = rep(0, length(beta)), sigma = Sigma)
-y_train=x_train %*% beta + rnorm(20,sd = sqrt(sig_squared))
-
-RR_fit=glmnet::cv.glmnet(x_train,y_train,alpha=0)
-
-x_test=mvnfast::rmvn(n = 200, mu = rep(0, length(beta)), sigma = Sigma)
-y_test=x_test %*% beta + rnorm(200,sd=sqrt(sig_squared))
-
-RR_predictions=predict(RR_fit, newx = x_test, s="lambda.min")
-
-LS_predictions= solve(t(x_test) %*% x_test) %*% t(x_test) %*% y_test
-
-MSPE_LS=mean((y_test-as.vector(LS_predictions))^2)
-MSPE_RR=mean((y_test-as.vector(RR_predictions))^2)
-
-MSPE_diff=MSPE_LS-MSPE_RR
-MSPE_diff
+MSPE_diff = rep(0,N)
+# for (j in 1:length(n)) {
+  for (i in 1:N) {
+    sig_squared = beta %*% Sigma %*% beta
+    
+    x_train = mvnfast::rmvn(n = n[j],
+                            mu = rep(0, length(beta)),
+                            sigma = Sigma)
+    y_train = x_train %*% beta + rnorm(n[j], sd = sqrt(sig_squared))
+    
+    RR_fit = glmnet::cv.glmnet(x_train, y_train, alpha = 0)
+    
+    x_test = mvnfast::rmvn(n = n[j]*10,
+                           mu = rep(0, length(beta)),
+                           sigma = Sigma)
+    y_test = x_test %*% beta + rnorm(n[j]*10, sd = sqrt(sig_squared))
+    
+    RR_predictions[,i] = predict(RR_fit, newx = x_test, s = "lambda.min")
+    LS_predictions[,i] = solve(t(x_test) %*% x_test) %*% t(x_test) %*% y_test
+    
+    MSPE_LS = mean((y_test - as.vector(LS_predictions)) ^ 2)
+    MSPE_RR = mean((y_test - as.vector(RR_predictions)) ^ 2)
+    
+    MSPE_diff[i] = MSPE_LS - MSPE_RR
+  }
 # }
+
+
 ```
 
 ## Including Plots
