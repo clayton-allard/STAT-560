@@ -1,5 +1,5 @@
 ---
-title: "Quiz 4 Question 1"
+title: "Quiz 4 Question 2"
 output: html_document
 date: "2022-11-17"
 ---
@@ -9,47 +9,51 @@ n=50
 N=1000
 beta_0=1
 beta=2
-sigma=sqrt(1)
 delta=1e-6
 
+p_est <-function(x,beta_0,beta){
+  return(1/(1+exp(-(beta_0+beta*x))))
+}
+
 x=rnorm(n)
-y=beta_0+beta*x+rnorm(n,sd=sigma)
+p<-p_est(x,beta_0,beta)
+y=rbinom(n,1,p)
 ```
 
 ```{r}
 
 # (Negative) Log-likelihood
 Compute_LogLikelihood <- function(x, y, beta_0, beta, sigma, ...){
-  
-  return((1/length(y))*(1/2)*mean((y-(beta_0+beta*x))^2)/sigma^2 + log(sigma) + log(2*pi)/2)
+  p=p_est(x,beta_0,beta)
+  return(-mean(y*log(p)+(1-y)*log(1-p)))
 }
 
 # Gradient vector
 Compute_Gradient <- function(x, y, beta_0, beta, sigma, ...){
-  
-  return(c(sigma^2*mean(y-(beta_0+beta*x)), 
-           sigma^2*mean((y-(beta_0+beta*x))*x)))
+  p=p_est(x,beta_0,beta)
+  return(c(mean(y-p), 
+           mean(x*(y-p))))
 }
 
 # (Negative) Hessian Matrix (observed information)
 Compute_Hessian <- function(x, y, beta_0, beta, sigma, ...){
-  
-  return(matrix(c(1, mean(x),
-                  mean(x), mean(x^2)), 
+  p=p_est(x,beta_0,beta)
+  return(matrix(c(mean(p*(1-p)), mean(x*p*(1-p)),
+                  mean(x*p*(1-p)), mean(x^2*p*(1-p))), 
                 nrow=2, ncol=2, byrow=TRUE))
 }
 
 # (Fisher) Information matrix (expected information)
-Compute_Information <- function(x,beta_0, beta, sigma){
-  
-  return(matrix(c(1, mean(x),
-                  mean(x), mean(x^2)), 
+Compute_Information <- function(x, beta_0, beta, sigma){
+  p=p_est(x,beta_0,beta)
+  return(matrix(c(mean(p*(1-p)), mean(x*p*(1-p)),
+                  mean(x*p*(1-p)), mean(x^2*p*(1-p))),
                 nrow=2, ncol=2, byrow=TRUE))
   
 }
 
 # MLE Estiamtion by Fisher scoring
-Compute_MLE <- function(x, y, sigma, initialEstimate = NULL, precision = 1e-6, maxIter = 1e5){
+Compute_MLE <- function(x, y, initialEstimate = NULL, precision = 1e-6, maxIter = 1e5){
   
   # Matrix to store solutions
   parameters <- matrix(ncol=2, nrow=maxIter)
@@ -65,7 +69,7 @@ Compute_MLE <- function(x, y, sigma, initialEstimate = NULL, precision = 1e-6, m
     
   # Iteration for desired precision
   for(iter in 2:maxIter){
-    parameters[iter,] <- parameters[iter-1,] + solve(Compute_Information(parameters[iter-1,1], parameters[iter-1,2], sigma)) %*% 
+    parameters[iter,] <- parameters[iter-1,] + solve(Compute_Information(x,y,parameters[iter-1,1], parameters[iter-1,2], sigma)) %*% 
       Compute_Gradient(x,y,parameters[iter-1,1], parameters[iter-1,2], sigma)
     
     # Compute log-likelihoods
@@ -90,15 +94,9 @@ Compute_MLE <- function(x, y, sigma, initialEstimate = NULL, precision = 1e-6, m
 
 ```{r}
 (MLE<-Compute_MLE(x,y,sigma)$MLE)
-lm(y~x)
+glm(y~x,family = "binomial")
 ```
 
-```{r}
-matrix(c(
-MLE+qnorm(0.025)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n),
-MLE+qnorm(0.975)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n)),
-nrow = 2, ncol = 2, byrow = FALSE)
-```
 
 ```{r}
 Confidence_Interval <- function(x,y,beta_0,beta,sigma,alpha=0.05){
@@ -118,7 +116,8 @@ CI_runs <- function(beta_0,beta,sigma,N,n,alpha=0.05,delta=1e-6){
   for(i in 1:N){
 
     x=rnorm(n)
-    y=beta_0+beta*x+rnorm(n,sd=sigma)
+    p<-p_est(x,beta_0,beta)
+    y=rbinom(n,1,p)
     
     MLEs[i,]<-Compute_MLE(x,y,sigma,precision = delta)$MLE
     
