@@ -102,7 +102,7 @@ Comparing the true MLE to the Fisher scoring algorithm. It appears that the esti
 glm(y~x,family = "binomial")
 ```
 
-Implementing the $(1-\alpha)\%$ confidence interval. To implement this, we use the fact that $$\hat{\theta}\sim \mathcal{N}(\theta,\frac{1}{n}I_O(\hat{\theta})^{-1})$$. This means that our interval for $\beta_0$ and $\beta$ are $$\hat{\beta_0} \pm z_{1-\alpha/2}\sqrt{\frac{1}{n}H(\hat{\beta_0},\hat{\beta})^{-1}_{11}}$$ and $$\hat{\beta} \pm z_{1-\alpha/2}\sqrt{\frac{1}{n}H(\hat{\beta_0},\hat{\beta})^{-1}_{22}}.$$
+Implementing the $(1-\alpha)\%$ confidence interval. To implement this, we use the fact that $$\hat{\theta}\sim \mathcal{N}(\theta,\frac{1}{n}I_O(\hat{\theta})^{-1})$$. This means that our interval for $\beta_0$ and $\beta$ are $$\hat{\beta_0} \pm z_{1-\alpha/2}\sqrt{-\frac{1}{n}H(\hat{\beta_0},\hat{\beta})^{-1}_{11}}$$ and $$\hat{\beta} \pm z_{1-\alpha/2}\sqrt{-\frac{1}{n}H(\hat{\beta_0},\hat{\beta})^{-1}_{22}}.$$
 ```{r}
 #creating the confidence interval.
 Confidence_Interval <- function(x,y,beta_0,beta,alpha=0.05){
