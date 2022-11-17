@@ -4,7 +4,10 @@ output: html_document
 date: "2022-11-17"
 ---
 
+Initializing the hyperparameters.
 ```{r}
+set.seed(11222503)
+
 n=50
 N=1000
 beta_0=1
@@ -12,10 +15,12 @@ beta=2
 sigma=sqrt(1)
 delta=1e-6
 
+#sampling the data.
 x=rnorm(n)
 y=beta_0+beta*x+rnorm(n,sd=sigma)
 ```
 
+Computing the MLE using the Fisher scoring algorithm.
 ```{r}
 
 # (Negative) Log-likelihood
@@ -27,15 +32,15 @@ Compute_LogLikelihood <- function(x, y, beta_0, beta, sigma, ...){
 # Gradient vector
 Compute_Gradient <- function(x, y, beta_0, beta, sigma, ...){
   
-  return(c(sigma^2*mean(y-(beta_0+beta*x)), 
-           sigma^2*mean((y-(beta_0+beta*x))*x)))
+  return(c(sigma^(-2)*mean(y-(beta_0+beta*x)), 
+           sigma^(-2)*mean((y-(beta_0+beta*x))*x)))
 }
 
 # (Negative) Hessian Matrix (observed information)
 Compute_Hessian <- function(x, y, beta_0, beta, sigma, ...){
   
   return(matrix(c(1, mean(x),
-                  mean(x), mean(x^2)), 
+                  mean(x), mean(x^2))/sigma^2, 
                 nrow=2, ncol=2, byrow=TRUE))
 }
 
@@ -43,7 +48,7 @@ Compute_Hessian <- function(x, y, beta_0, beta, sigma, ...){
 Compute_Information <- function(x,beta_0, beta, sigma){
   
   return(matrix(c(1, mean(x),
-                  mean(x), mean(x^2)), 
+                  mean(x), mean(x^2))/sigma^2, 
                 nrow=2, ncol=2, byrow=TRUE))
   
 }
@@ -65,7 +70,7 @@ Compute_MLE <- function(x, y, sigma, initialEstimate = NULL, precision = 1e-6, m
     
   # Iteration for desired precision
   for(iter in 2:maxIter){
-    parameters[iter,] <- parameters[iter-1,] + solve(Compute_Information(parameters[iter-1,1], parameters[iter-1,2], sigma)) %*% 
+    parameters[iter,] <- parameters[iter-1,] + solve(Compute_Information(x,parameters[iter-1,1], parameters[iter-1,2], sigma)) %*% 
       Compute_Gradient(x,y,parameters[iter-1,1], parameters[iter-1,2], sigma)
     
     # Compute log-likelihoods
@@ -87,20 +92,14 @@ Compute_MLE <- function(x, y, sigma, initialEstimate = NULL, precision = 1e-6, m
 }
 ```
 
-
+Comparing the true MLE to the Fisher scoring algorithm. It appears that the estimates are nearly exactly equal indicating that the implementation worked.
 ```{r}
 (MLE<-Compute_MLE(x,y,sigma)$MLE)
 lm(y~x)
 ```
-
+Implementing the $(1-\alpha)\%$ confidence interval. To implement this, we use the fact that $$\hat{\theta}\sim \mathcal{N}(\theta,\frac{1}{n}I_O(\hat{\theta})^{-1})$$. This means that our interval for $\beta_0$ and $\beta$ are $$\hat{\beta_0} \pm z_{1-\alpha/2}\sqrt{\frac{1}{n}H(\hat{\beta_0},\hat{\beta})^{-1}_{11}}$$ and $$\hat{\beta} \pm z_{1-\alpha/2}\sqrt{\frac{1}{n}H(\hat{\beta_0},\hat{\beta})^{-1}_{22}}.$$
 ```{r}
-matrix(c(
-MLE+qnorm(0.025)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n),
-MLE+qnorm(0.975)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n)),
-nrow = 2, ncol = 2, byrow = FALSE)
-```
-
-```{r}
+#creating the confidence interval.
 Confidence_Interval <- function(x,y,beta_0,beta,sigma,alpha=0.05){
   n=length(y)
   MLE=c(beta_0,beta)
@@ -110,24 +109,30 @@ MLE+qnorm(1-alpha/2)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n)
 nrow = 2, ncol = 2, byrow = FALSE))
 }
 
+#simulating N amount of intervals and seeing how often the true parameter is contained.
 CI_runs <- function(beta_0,beta,sigma,N,n,alpha=0.05,delta=1e-6){
   beta_0_intervals<-matrix(ncol=2,nrow=N)
   beta_intervals<-matrix(ncol=2,nrow=N)
   MLEs<-matrix(ncol=2,nrow=N)
   
+  #running the loop for all the trials.
   for(i in 1:N){
 
+    #simulating the data
     x=rnorm(n)
     y=beta_0+beta*x+rnorm(n,sd=sigma)
     
+    #store the MLEs
     MLEs[i,]<-Compute_MLE(x,y,sigma,precision = delta)$MLE
     
+    #Storing the confidence intervals
     CI<-Confidence_Interval(x,y,MLEs[i,1],MLEs[i,2],sigma,alpha)
     
     beta_0_intervals[i,]<-CI[1,]
     beta_intervals[i,]<-CI[2,]
   }
     
+  #calculating the proportions for the true parameter being contained for both parameters.
   proportions<-c(sum(beta_0_intervals[,1]<beta_0 & beta_0<beta_0_intervals[,2]),
                     sum(beta_intervals[,1]<beta & beta<beta_intervals[,2]))/N
   
@@ -135,8 +140,9 @@ CI_runs <- function(beta_0,beta,sigma,N,n,alpha=0.05,delta=1e-6){
 }
 ```
 
+Testing to see how often the interval includes the true parameters. We expect this to be close to $1-\alpha$.
 ```{r}
 CI_runs(beta_0,beta,sigma,N,n)$proportions
 ```
 
-
+The proportions of the alpha values appear to be very close to $0.95$ as we expected. The observed information does not depend on the MLEs $\beta_0$ and $\beta$ which would explain why this is more accurate than with the logistic regression case.
