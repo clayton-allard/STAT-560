@@ -1,0 +1,142 @@
+---
+title: "Quiz 4 Question 1"
+output: html_document
+date: "2022-11-17"
+---
+
+```{r}
+n=50
+N=1000
+beta_0=1
+beta=2
+sigma=sqrt(1)
+delta=1e-6
+
+x=rnorm(n)
+y=beta_0+beta*x+rnorm(n,sd=sigma)
+```
+
+```{r}
+
+# (Negative) Log-likelihood
+Compute_LogLikelihood <- function(x, y, beta_0, beta, sigma, ...){
+  
+  return((1/length(y))*(1/2)*mean((y-(beta_0+beta*x))^2)/sigma^2 + log(sigma) + log(2*pi)/2)
+}
+
+# Gradient vector
+Compute_Gradient <- function(x, y, beta_0, beta, sigma, ...){
+  
+  return(c(sigma^2*mean(y-(beta_0+beta*x)), 
+           sigma^2*mean((y-(beta_0+beta*x))*x)))
+}
+
+# (Negative) Hessian Matrix (observed information)
+Compute_Hessian <- function(x, y, beta_0, beta, sigma, ...){
+  
+  return(matrix(c(1, mean(x),
+                  mean(x), mean(x^2)), 
+                nrow=2, ncol=2, byrow=TRUE))
+}
+
+# (Fisher) Information matrix (expected information)
+Compute_Information <- function(beta_0, beta, sigma){
+  
+  return(matrix(c(1, 0,
+                  0, sigma^2), 
+                nrow=2, ncol=2, byrow=TRUE))
+  
+}
+
+# MLE Estiamtion by Fisher scoring
+Compute_MLE <- function(x, y, sigma, initialEstimate = NULL, precision = 1e-6, maxIter = 1e5){
+  
+  # Matrix to store solutions
+  parameters <- matrix(ncol=2, nrow=maxIter)
+  
+  # Setting initial estimate
+  if(!is.null(initialEstimate))
+    parameters[1,] <- initialEstimate else
+      parameters[1,] <- c(0, 0)
+  
+  # Computing log-likelihood at initial estimate
+  logLikelihoods <- numeric(maxIter)
+  logLikelihoods[1] <- Compute_LogLikelihood(x,y,parameters[1,1], parameters[1,2], sigma)  
+    
+  # Iteration for desired precision
+  for(iter in 2:maxIter){
+    parameters[iter,] <- parameters[iter-1,] + solve(Compute_Information(parameters[iter-1,1], parameters[iter-1,2], sigma)) %*% 
+      Compute_Gradient(x,y,parameters[iter-1,1], parameters[iter-1,2], sigma)
+    
+    # Compute log-likelihoods
+    logLikelihoods[iter] <- Compute_LogLikelihood(x,y,parameters[iter,1], parameters[iter,2], sigma)    
+      
+    # Check for convergence
+    if(max(abs(parameters[iter,] - parameters[iter-1,])) < precision)
+      break
+  }
+    
+  # Extracting iterations
+  parameters <- na.omit(parameters)
+  parameters <- parameters[1:nrow(parameters),]
+  logLikelihoods <- logLikelihoods[1:nrow(parameters)]
+  
+  # Retuning data
+  return(list(MLE=parameters[nrow(parameters),], nIters=nrow(parameters), iterations=parameters, logLikelihoods=logLikelihoods))
+      
+}
+```
+
+
+```{r}
+(MLE<-Compute_MLE(x,y,sigma)$MLE)
+lm(y~x)
+```
+
+```{r}
+matrix(c(
+MLE+qnorm(0.025)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n),
+MLE+qnorm(0.975)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n)),
+nrow = 2, ncol = 2, byrow = FALSE)
+```
+
+```{r}
+Confidence_Interval <- function(x,y,beta_0,beta,sigma,alpha=0.05){
+  n=length(y)
+  MLE=c(beta_0,beta)
+  return(matrix(c(
+MLE+qnorm(alpha/2)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n),
+MLE+qnorm(1-alpha/2)*sqrt(diag(solve(Compute_Hessian(x,y,beta_0,beta,sigma)))/n)),
+nrow = 2, ncol = 2, byrow = FALSE))
+}
+
+CI_runs <- function(beta_0,beta,sigma,N,n,alpha=0.05,delta=1e-6){
+  beta_0_intervals<-matrix(ncol=2,nrow=N)
+  beta_intervals<-matrix(ncol=2,nrow=N)
+  MLEs<-matrix(ncol=2,nrow=N)
+  
+  for(i in 1:N){
+
+    x=rnorm(n)
+    y=beta_0+beta*x+rnorm(n,sd=sigma)
+    
+    MLEs[i,]<-Compute_MLE(x,y,sigma,precision = delta)$MLE
+    
+    CI<-Confidence_Interval(x,y,MLEs[i,1],MLEs[i,2],sigma,alpha)
+    
+    beta_0_intervals[i,]<-CI[1,]
+    beta_intervals[i,]<-CI[2,]
+  }
+    
+  proportions<-c(sum(beta_0_intervals[,1]<beta_0 & beta_0<beta_0_intervals[,2]),
+                    sum(beta_intervals[,1]<beta & beta<beta_intervals[,2]))/N
+  
+  return(list(beta_0_intervals=beta_0_intervals,beta_intervals=beta_intervals,MLEs=MLEs,proportions=proportions))
+}
+```
+
+```{r}
+CI_runs(beta_0,beta,sigma,N,n)$proportions
+```
+
+
