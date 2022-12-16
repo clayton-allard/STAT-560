@@ -1,0 +1,80 @@
+---
+title: "Quiz 5 practice"
+output: html_document
+date: "2022-11-23"
+---
+
+To create an initial guess for $\mu$ and $\sigma^2$, I can take advantage of the fact that the normal distribution is symmetric. Therefore, my prediction for $\mu$ is the median of 10 elements (where 3 larger elements were input), and my prediction for $\sigma^2$ was duplicating the 1-r variables to replicate the variance that would occur from the missing values (having the same expected distance from the mean).
+```{r}
+#initializing data
+n=10
+data=c(0.978,1.011,1.151,1.204,1.214,1.305,1.323)
+c=max(data)
+r=n-length(data)
+delta=1e-6
+mu=median(c(data,rep(Inf,r))) #initial guess for mu
+sigma_sq=sum((c(data,data[1:r])-mu)^2)/n #initial guess for sigma^2
+
+#initializing likelihood function
+f <- function(x, mu=0, sigma_sq=1){
+  return(dnorm(x,mean=mu,sd=sqrt(sigma_sq)))
+}
+
+#the right truncated normal pdf
+f_trunc <- function(x,c=x,mu=0,sigma_sq=1){
+  if(x < c)
+    return(0)
+  return(f(x,mu,sigma_sq)/(1-pnorm(c,mu,sqrt(sigma_sq))))
+}
+
+#log likelihood values
+inc_log_like= log(choose(n,r))+sum(log(f(data,mu[1],sigma_sq[1])))+r*log(1-pnorm(c,mu[1],sigma_sq[1]))
+```
+
+```{r}
+#conditions for the while loop.
+check_conditions <- function(params,iter,delta){
+  if(iter==1)
+    return(T)
+  return(max(abs(params[iter,]-params[iter-1,])) > delta)
+}
+```
+
+```{r}
+#initialize iterations
+iter=1
+params=c(mu,sigma_sq)
+while(check_conditions(params,iter,delta)){
+  #new estimates for the mean and variance
+  new_mu=(sum(data)+r*(mu[iter]+sigma_sq[iter]*f_trunc(c,mu=mu[iter],sigma_sq=sigma_sq[iter])))/n
+  new_sigma_sq=(sum((data-new_mu)^2)+
+    r*(mu[iter]^2 + sigma_sq[iter]*(1+(c+mu[iter])*f_trunc(c,mu=mu[iter],sigma_sq=sigma_sq[iter]))
+       -2*new_mu*(mu[iter]+sigma_sq[iter]*f_trunc(c,mu=mu[iter],sigma_sq=sigma_sq[iter]))+new_mu^2))/n
+  
+  #store these new estimates
+  mu=c(mu,new_mu)
+  sigma_sq=c(sigma_sq,new_sigma_sq)
+  params=rbind(params,c(new_mu,new_sigma_sq))
+  
+  iter=iter+1
+  
+  #store the log-likelihood
+  new_inc_log_like= log(choose(n,r))+sum(log(f(data,mu[iter],sigma_sq[iter])))+r*log(1-pnorm(c,mu[iter],sigma_sq[iter]))
+  inc_log_like=c(inc_log_like,new_inc_log_like)
+}
+
+data.frame(mu=mu[iter],sigma_squared=sigma_sq[iter])
+```
+
+It appears that $\hat{\mu}\approx 1.24795$ and $\hat{\sigma^2}\approx 0.02738$.
+
+```{r}
+#plot the data.
+plot(mu,main="Mu at each step")
+plot(sigma_sq,ylab="Sigma Squared",main="Sigma Squared at each step")
+plot(inc_log_like,ylab="Log-Likelihood",main="Log-Likelihood at each step")
+```
+
+The plots show that the parameters begin to converge to their estimate very quickly. All 3 plots seem to have an exponential relationship between their convergence value, and the iteration.
+
+
