@@ -53,4 +53,4 @@ expectation=mean(log(abs(data[,1]/data[,3]))*abs(data[,2]/data[,4]))
 print(expectation)
 ```
 
-After running the gibbs algorithm and taking the sample mean, we can approximate that $$E[\log(|X_1/X_3|)\times |X_2/X_4|]\approx 14.55$$ After running this a few times though, I notice that there is a TON of variance. Even with a sample size of 5000, the sample mean values range from $11-366$.My guess is that when $X_1$ or $X_4$ get extremely close to 0, the value blows up into something extremely large which causes this massive range of values. It surely isn't normally distributed.
+After running the gibbs algorithm and taking the sample mean, we can approximate that $$E[\log(|X_1/X_3|)\times |X_2/X_4|]\approx 14.56$$ After running this a few times though, I notice that there is a TON of variance. Even with a sample size of 5000, the sample mean values range from $11-366$.My guess is that when $X_1$ or $X_4$ get extremely close to 0, the value blows up into something extremely large which causes this massive range of values. It surely isn't normally distributed.

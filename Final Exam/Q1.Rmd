@@ -1,0 +1,43 @@
+---
+title: "Question 1"
+output: html_document
+date: "2022-12-16"
+---
+
+```{r}
+# Initializing parameters
+set.seed(640293619)
+alpha=0.05
+lambda=0.05
+n=15
+N=10000
+lamb_CI = matrix(0, nrow=N,ncol=2)
+```
+
+```{r}
+# Inverse cdf for v
+v <- function(lambda, alpha=0.05){
+  return(-(1/lambda)*log(log(1/alpha)))
+}
+```
+
+```{r}
+for(i in 1:N){
+  #sample data
+  sample = rexp(n,lambda)
+  M = max(sample)
+  #save estimates
+  lamb_CI[i,1]= log(n)/(M-v(lambda,alpha/2))
+  #make correction for when M < v
+  if(M > v(lambda,1-alpha/2)){
+    lamb_CI[i,2]= log(n)/(M-v(lambda,1-alpha/2))
+  } else {
+    lamb_CI[i,2]= Inf
+  }
+} 
+  
+  length(which(lamb_CI[,1]<lambda & lambda<lamb_CI[,2]))/N
+
+```
+
+We get that $\lambda$ appears in the confidence interval about $95.97$% of the time. We expect the estimate to be slightly off $95$% because of the small sample size $n$. This is not enough samples for the convergence to be precise.
