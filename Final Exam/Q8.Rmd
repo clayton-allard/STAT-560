@@ -1,0 +1,103 @@
+---
+title: "Question 8"
+output: html_document
+date: "2022-12-16"
+---
+
+```{r}
+set.seed(1578929130)
+#Initializing parameters
+library(MASS)
+p=50
+N=100
+n=20
+alpha=3/4
+lambda=0.5
+delta=10e-4
+rho=0.9
+beta_0=0
+beta=c(rep(5,5),rep(0,p-5))
+mu=rep(0,p)
+
+#setting the covariance matrix
+sig=matrix(0,nrow=p,ncol = p)
+for (i in 1:50) {
+  for (j in 1:50) {
+    sig[i,j]=abs(rho)^abs(i-j)
+  }
+}
+
+#to satisfy the signal to noise
+sigma_sq=as.numeric(t(beta)%*%sig%*%beta)
+```
+
+```{r}
+generate_data <- function(){
+    #drawing data
+    X=mvrnorm(n = n,
+          mu = mu, 
+          Sigma = sig)
+    Y=X%*%beta+rnorm(n=n,sd=sqrt(sigma_sq))
+  return(list(X=X,Y=Y))
+}
+```
+
+
+```{r}
+coordinate_descent <- function(X,Y,alpha=3/4,lambda=2,delta=10e-3,intercept=F){
+  prev_beta=rep(-Inf,dim(X)[2])
+  #initialize beta randomly
+  beta=rnorm(n=dim(X)[2])
+  count=0
+  while(max(beta-prev_beta)>delta){
+    prev_beta=beta
+    count=count+1
+    for(i in 1:dim(X)[2]){
+      #setting it equal to 0 is equivalent to removing it for calculations.
+      beta[i]=0
+      
+      if(intercept & i==1){
+        beta[1]=mean(Y-X%*%beta)
+        next
+      }
+      
+      L=X[,i]%*%(Y-X%*%beta)
+      
+      beta[i]=sign(L)*max(abs(L)-lambda*alpha,0)/(1+lambda*(1-alpha))
+      print(max(beta-prev_beta))
+      
+      # prev_beta=beta
+      # temp_beta=beta[-i]
+      # sign=sign(beta[i])
+      # L=-2*t(X[,i])%*%Y+2*t(X[,i])%*%X[,-i]%*%beta[-i]
+      # beta[i]=(L-lambda*alpha*sign)/(lambda*(1-alpha)+sum(X[,i]^2))
+    }
+  }
+  print(count)
+  return(beta)
+}
+```
+
+```{r}
+coordinate_descent(X,Y,alpha=0,lambda=0)
+```
+
+
+
+```{r setup, warning = FALSE}
+# knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+for(i in 1:N){
+  # drawing data
+  data=generate_data()
+  X=data$X
+  Y=data$Y
+  # beta_hats=matrix(0,nrow=N,ncol = p)
+  # beta_hats[i,]=coordinate_descent(X,Y)
+  mod=cv.glmnet(X,Y,alpha=3/4,intercept = TRUE)
+  beta_hats[i,]=coef(mod)[-1]
+  # print(coef(mod))
+}
+
+apply(beta_hats,2,mean)
+```
+
