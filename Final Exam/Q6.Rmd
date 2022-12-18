@@ -1,0 +1,40 @@
+---
+title: "Question 6"
+output: html_document
+date: "2022-12-18"
+---
+
+```{r setup, include=FALSE}
+#loads data variable
+load("Problem_6.RData")
+```
+
+```{r}
+EM_algorithm <- function(x, delta=10e-6, maxIter=1e5){
+  a=x[x!=6]
+  b=x[x==6]
+  
+  #initial guess
+  lambda = (sum(a)+7.5*length(b))/length(x)
+  
+  #algorithm
+  for(i in 2:maxIter){
+    prev_lambda=lambda
+    #need to condition expectation on only having 6 and 9 as options.
+    C=dpois(6,lambda)+dpois(9,lambda)
+    lambda = (sum(a)+length(b)*(6*dpois(6,lambda)+9*dpois(9,lambda))/C)/length(x)
+    
+    #check if the algorithm has converged
+    if(abs(lambda - prev_lambda) < delta)
+      break
+  }
+  
+  return(lambda)
+}
+```
+
+```{r}
+EM_algorithm(Z)
+```
+From doing the EM_algorithm, we get an estimate of about $\hat{\lambda}\approx 7.08776$. This is in line with what I expected since the mean of the data is about 6.74 and we'd expect to see something slightly higher than that with all the 9's converted to 6.
+

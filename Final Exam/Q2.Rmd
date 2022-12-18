@@ -1,0 +1,25 @@
+---
+title: "Question 2"
+output: html_document
+date: "2022-12-16"
+---
+
+```{r}
+# Initializing parameters
+set.seed(320733099)
+
+rg <- function(n){
+  t = runif(n)
+  sin(t)*exp(-3*t^2)/(1+t)
+}
+
+N=10000
+k=0.01
+alpha=0.05
+n=500
+```
+
+```{r}
+mean(rg(500))
+```
+

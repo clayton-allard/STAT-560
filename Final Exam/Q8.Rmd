@@ -8,6 +8,7 @@ date: "2022-12-16"
 set.seed(1578929130)
 #Initializing parameters
 library(MASS)
+library(glmnet)
 p=50
 N=100
 n=20
@@ -44,16 +45,19 @@ generate_data <- function(){
 
 
 ```{r}
-coordinate_descent <- function(X,Y,alpha=3/4,lambda=2,delta=10e-3,intercept=F){
-  prev_beta=rep(-Inf,dim(X)[2])
+coordinate_descent <- function(X,Y,alpha=3/4,lambda=4,delta=10e-3,intercept=F){
   #initialize beta randomly
-  beta=rnorm(n=dim(X)[2])
+  if(intercept)
+    beta=rnorm(n=dim(X)[2]+1)
+  else
+    beta=rnorm(n=dim(X)[2])
   count=0
-  while(max(beta-prev_beta)>delta){
+  while(T){
     prev_beta=beta
     count=count+1
     for(i in 1:dim(X)[2]){
       #setting it equal to 0 is equivalent to removing it for calculations.
+      sign=sign(beta[i])
       beta[i]=0
       
       if(intercept & i==1){
@@ -61,19 +65,12 @@ coordinate_descent <- function(X,Y,alpha=3/4,lambda=2,delta=10e-3,intercept=F){
         next
       }
       
-      L=X[,i]%*%(Y-X%*%beta)
-      
-      beta[i]=sign(L)*max(abs(L)-lambda*alpha,0)/(1+lambda*(1-alpha))
-      print(max(beta-prev_beta))
-      
-      # prev_beta=beta
-      # temp_beta=beta[-i]
-      # sign=sign(beta[i])
-      # L=-2*t(X[,i])%*%Y+2*t(X[,i])%*%X[,-i]%*%beta[-i]
-      # beta[i]=(L-lambda*alpha*sign)/(lambda*(1-alpha)+sum(X[,i]^2))
+      beta[i]=(2*sum(Y-X%*%beta)-lambda*alpha*sign)/(lambda*(1-alpha)-2*sum(X[,i]))
     }
+    #Check condition
+    if(max(beta-prev_beta)<delta)
+        break
   }
-  print(count)
   return(beta)
 }
 ```
