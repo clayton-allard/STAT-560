@@ -46,6 +46,11 @@ generate_data <- function(){
 
 ```{r}
 coordinate_descent <- function(X,Y,alpha=3/4,lambda=4,delta=10e-3,intercept=F){
+  norm <- function(x){
+    return(1/sqrt(sum(x^2)))
+  }
+  X_norm=apply(X,1,norm)
+  
   #initialize beta randomly
   if(intercept)
     beta=rnorm(n=dim(X)[2]+1)
@@ -65,7 +70,7 @@ coordinate_descent <- function(X,Y,alpha=3/4,lambda=4,delta=10e-3,intercept=F){
         next
       }
       
-      beta[i]=(2*sum(Y-X%*%beta)-lambda*alpha*sign)/(lambda*(1-alpha)-2*sum(X[,i]))
+      beta[i]=(2*sum(Y-X%*%prev_beta)-lambda*alpha*sign)/(lambda*(1-alpha)-2*sum(X[,i]^2))
     }
     #Check condition
     if(max(beta-prev_beta)<delta)
