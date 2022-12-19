@@ -16,10 +16,6 @@ sig=matrix(c(6,2,1,0,
              1,1,3,0,
              0,1,0,7)
            ,nrow = 4,ncol=4)
-#initialize by drawing from x_i each independently
-sample_data=matrix(0,nrow = B+N,ncol = 4)
-
-sample_data[1,]=rnorm(4,mean=mu,sd=sqrt(diag(sig)))
 ```
 
 For this algorithm we will separate the $X_1$ and $X_2$ from $X_3$ and $X_4$. This way, we can use the conditional distribution to use a bivariate normal. Let $$Y_1=\begin{bmatrix}X_1\\
@@ -30,6 +26,9 @@ X_4\end{bmatrix}$$ We will use the fact that $$Y_1 | Y_2 \sim N(\hat{y}_1, \Sigm
 2 & 6\end{bmatrix}.$$ Using this, we can compute the conditional distributions to find the posterior distributions.
 
 ```{r}
+#initialize by drawing from x_i each independently
+sample_data=matrix(0,nrow = B+N,ncol = 4)
+sample_data[1,]=rnorm(4,mean=mu,sd=sqrt(diag(sig)))
 sub11=sig[1:2,1:2]
 sub12=sig[1:2,3:4]
 sub21=sig[3:4,1:2]
@@ -47,7 +46,7 @@ sample_data[i,3:4]=mvrnorm(n = 1,
                                Sigma = sub22-sub21%*%solve(sub11)%*%sub12)
 }
 
-#take out the burn out samples
+#take out the burn in samples
 data=sample_data[B+1:N,]
 expectation=mean(log(abs(data[,1]/data[,3]))*abs(data[,2]/data[,4]))
 print(expectation)

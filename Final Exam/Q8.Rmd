@@ -9,12 +9,10 @@ set.seed(1578929130)
 #Initializing parameters
 library(MASS)
 library(glmnet)
+#for part b, but I will use these parameters throughout anyways.
 p=50
-N=100
+N=1000
 n=20
-alpha=3/4
-lambda=0.5
-delta=10e-4
 rho=0.9
 beta_0=0
 beta=c(rep(5,5),rep(0,p-5))
@@ -22,8 +20,8 @@ mu=rep(0,p)
 
 #setting the covariance matrix
 sig=matrix(0,nrow=p,ncol = p)
-for (i in 1:50) {
-  for (j in 1:50) {
+for (i in 1:p) {
+  for (j in 1:p) {
     sig[i,j]=abs(rho)^abs(i-j)
   }
 }
@@ -33,73 +31,155 @@ sigma_sq=as.numeric(t(beta)%*%sig%*%beta)
 ```
 
 ```{r}
-generate_data <- function(){
+generate_data <- function(n){
     #drawing data
     X=mvrnorm(n = n,
-          mu = mu, 
+          mu = rep(0,p), 
           Sigma = sig)
-    Y=X%*%beta+rnorm(n=n,sd=sqrt(sigma_sq))
+    Y=beta_0+X%*%beta+rnorm(n=n,sd=sqrt(sigma_sq))
   return(list(X=X,Y=Y))
 }
 ```
 
+To run the elastic net model, we will use coordinate descent. The minimization for elastic net $$\arg\min_{\beta \in \mathbb{R}^{p}}\|(Y - \mathbb{1}\beta_0 - X\beta)\|_2^2 + \lambda\left(\alpha\|\beta\|_1 + \frac{1-\alpha}{2}\|\beta\|_2^2\right)$$ is intractable in multiple dimensions due to the lasso term. The coordinate descent algorithm allows us to, instead, minimize one coordinate at a time. It is a way of turning one hard problem into several easy problems.
+
+This implementation below is the cyclic coordinate descent. For each step, we have $$\hat{\beta}_k^{(t+1)}=\arg\min_{\beta \in \mathbb{R}} \mathcal{L}(\hat{\beta}_1^{(t+1)},...,\hat{\beta}_{k-1}^{(t+1)},\beta,\hat{\beta}_{k+1}^{(t)},...,\hat{\beta}_p^{(t)}).$$ 
+
+To derive this, we will first look at the intercept. $$\begin{align}\frac{\partial \mathcal{L}}{\partial \beta_0}=-2\cdot \mathbb{1}^T(Y - \mathbb{1}\beta_0 - X\beta)&=0\\
+n\beta_0 &= \sum_{i=1}^n (Y_i - X_i^T\beta)\\
+\beta_0 &= \frac{\sum_{i=1}^n (Y_i - X_i^T\beta)}{n}
+\end{align}$$
+
+For the non-intercept derivation, I will not include the intercept term out of convenience. It will not change the calculate much at all. \[\begin{align}\frac{\partial \mathcal{L}}{\partial \beta_k}&=-2\cdot X_k^T(Y - X\beta) + \lambda\alpha \frac{\partial }{\partial \beta_k} \|\beta\|_1 + (1-\alpha)\beta_k=0 \tag{Let $L_k=X_k^T(Y - X\beta)$}\\
+\tag{$L_k^{(-k)}=X_k^T(Y - X\beta^{(-k)})$ where $\beta^{(-k)}=\beta$ such that $\beta_k=0$}0&=\begin{cases}-L_k - \lambda\alpha + \lambda(1-\alpha)\beta_k & \text{if} &\beta_k<0\\
+\left[-L_k^{(-k)}-\lambda\alpha,-L_k^{(-k)}+\lambda\alpha\right] & \text{if} & \beta_k=0\\
+-L_k + \lambda\alpha + \lambda(1-\alpha)\beta_k & \text{if} &\beta_k>0\end{cases}\\
+\end{align}\] In order for these cases to hold true, we need $$-L_k^{(-k)}-\lambda\alpha \leq 0 \leq -L_k^{(-k)}+\lambda\alpha\\
+-\lambda\alpha \leq L_k^{(-k)} \leq \lambda\alpha.$$ Now we can solve for the case where $\beta_k<0$.\[\begin{align}-L_k^{(-k)}+X_k^TX_k\beta_k-\lambda\alpha+\lambda(1-\alpha)\beta_k&=0\tag{$L_k=L_k^{(-k)}-X_k^TX_k\beta_k$}\\
+\left((X_k^TX_k + \lambda(1-\alpha)\right)\beta_k&=L_k^{(-k)}+\lambda \alpha\\
+\beta_k=\frac{L_k^{(-k)}+\lambda\alpha}{X_k^TX_k + \lambda(1-\alpha)}.
+\end{align}\] We know that $B_k < 0$ if and only if $L_k^{(-k)}+\lambda\alpha<0$ which implies $L_k^{(-k)}<-\lambda\alpha$. The case where $B_k>0$ is near identical. The estimate for $\beta_k$ is $$\hat{\beta}_k=\begin{cases}\frac{L_k^{(-k)}+\lambda\alpha}{X_k^TX_k + \lambda(1-\alpha)} & \text{if} & L_k^{(-k)}<-\lambda\alpha\\
+0 & \text{if} & -\lambda\alpha \leq L_k^{(-k)} \leq \lambda\alpha\\
+\frac{L_k^{(-k)}-\lambda\alpha}{X_k^TX_k + \lambda(1-\alpha)} & \text{if} & L_k^{(-k)}>\lambda\alpha
+\end{cases}$$ We will run this until the absolute difference between all the components in $\hat{\beta^{(k)}}$ and $\hat{\beta^{(k-1)}}$ is less than some pre-specified threshold. For my code, I will use $\delta=1e^{-4}$.
 
 ```{r}
-coordinate_descent <- function(X,Y,alpha=3/4,lambda=4,delta=10e-3,intercept=F){
-  norm <- function(x){
-    return(1/sqrt(sum(x^2)))
-  }
-  X_norm=apply(X,1,norm)
+# elastic net model using coordinate descent.
+elastic_net <- function(X,Y,alpha=3/4,lambda=4,delta=1e-4,intercept=F){
   
   #initialize beta randomly
-  if(intercept)
-    beta=rnorm(n=dim(X)[2]+1)
-  else
-    beta=rnorm(n=dim(X)[2])
+  beta_est=rnorm(n=dim(X)[2])
+  beta_0_est=mean(X)
   count=0
   while(T){
-    prev_beta=beta
+    prev_beta=beta_est
     count=count+1
+    if(intercept){
+      beta_0_est=mean(Y-X%*%beta_est)
+    }
     for(i in 1:dim(X)[2]){
-      #setting it equal to 0 is equivalent to removing it for calculations.
-      sign=sign(beta[i])
-      beta[i]=0
-      
-      if(intercept & i==1){
-        beta[1]=mean(Y-X%*%beta)
-        next
+      # all the cases from the lasso regression part
+      beta_est[i]=0
+      p=t(X[,i])%*%(Y-X%*%beta_est-beta_0_est)
+      if(p < -lambda*alpha){
+        beta_est[i]=(p+lambda*alpha)/(sum(X[,i]^2) + lambda*(1-alpha))
+      } else if (p > lambda*alpha){
+        beta_est[i]=(p-lambda*alpha)/(sum(X[,i]^2) + lambda*(1-alpha))
+      } else {
+        beta_est[i]=0
       }
-      
-      beta[i]=(2*sum(Y-X%*%prev_beta)-lambda*alpha*sign)/(lambda*(1-alpha)-2*sum(X[,i]^2))
     }
     #Check condition
-    if(max(beta-prev_beta)<delta)
+    if(max(beta_est-prev_beta)<delta)
         break
   }
-  return(beta)
+  #include the intercept in the output
+  if(intercept){
+    beta_est = c(beta_0_est,beta_est)
+  }
+  return(beta_est)
 }
 ```
 
 ```{r}
-coordinate_descent(X,Y,alpha=0,lambda=0)
+data=generate_data(n)
+X=data$X
+Y=data$Y
+elastic_net(X,Y,alpha=3/4,lambda=25,intercept = F)
+```
+It appears that the first 5 coefficients are well above 0 which is a good sign. Although, $n=20$ is a small sample size so it isn't too surprising to see some of those terms be super far from 0. Especially the ones most correlated like the 6th coefficient. The good thing is that most of the terms are 0 or close to 0. Let's try this with $n=10000$
+
+```{r}
+data=generate_data(10000)
+X=data$X
+Y=data$Y
+elastic_net(X,Y,alpha=3/4,lambda=25,intercept = F)
+```
+This is more along the lines of what we expect to see. The first 5 terms close to 5 and the rest close to 0.
+
+```{r}
+CV_elastic_net <- function(X,Y,n_folds=2,lambda=exp(seq(-2,8,by=0.25)),print=F){
+  n=length(Y)
+  perm = sample(n,n)
+  mse = rep(0,length(lambda))
+  
+  for(lamb in 1:length(lambda)){
+    for(i in 1:n_folds){
+      #training data
+      train_X=X[-perm[((i-1)*(n/n_folds)+1):(i*(n/n_folds))],]
+      train_Y=Y[-perm[((i-1)*(n/n_folds)+1):(i*(n/n_folds))]]
+      
+      #testing data
+      test_X=X[perm[((i-1)*(n/n_folds)+1):(i*(n/n_folds))],]
+      test_Y=Y[perm[((i-1)*(n/n_folds)+1):(i*(n/n_folds))]]
+      
+      beta_hat = elastic_net(train_X,train_Y,lambda = lambda[lamb])
+      
+      #Compare Mean Square Error to determine the best lambda.
+      mse[lamb] = mse[lamb] + sum((test_Y - test_X%*%beta_hat)^2)/n
+    }
+    if(print)
+      cat("lambda=", lambda[lamb], " complete, MSE=", mse[lamb], "\t", lamb, "/", length(lambda),"\n")
+  }
+  return(lambda[which(mse==min(mse))])
+}
 ```
 
+After doing some tests, the $\hat{\lambda}$ varies depending on $n$ so I will just do $n=20$ since that is what part b wants.
+```{r}
+#generate data
+data=generate_data(n)
+X=data$X
+Y=data$Y
+#exponential scale for lambda
+lambda=exp(seq(-2,8,by=0.25))
+initial_choice=CV_elastic_net(X,Y,n_folds=2,lambda=lambda)
+index=which(lambda==initial_choice)
 
-
-```{r setup, warning = FALSE}
-# knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
-for(i in 1:N){
-  # drawing data
-  data=generate_data()
-  X=data$X
-  Y=data$Y
-  # beta_hats=matrix(0,nrow=N,ncol = p)
-  # beta_hats[i,]=coordinate_descent(X,Y)
-  mod=cv.glmnet(X,Y,alpha=3/4,intercept = TRUE)
-  beta_hats[i,]=coef(mod)[-1]
-  # print(coef(mod))
+#edge conditions
+if(index==1){
+  index=2
+  lambda[1]=0
+} else if(index==length(lambda)){
+  index=length(lambda-1)
 }
 
-apply(beta_hats,2,mean)
+(best_lambda=CV_elastic_net(X,Y,n_folds=2,lambda=seq(lambda[index-1],lambda[index+1],length.out=41),print=T))
+```
+According to this model. The best value is at about $\hat{\lambda}\approx 25.7903$. Although, this happened at the very last part of the cycle. After running many of these tests on my own time, I've realized that it varies greatly! Sometimes the optimal choice is about $0.5$ and other times the optimal choice is about $100$. Mostly depends on the data set I suppose. This value of around $25$ seems to be about a good median from what I've seen so I'll choose it as the best.
+
+```{r setup, warning = FALSE}
+beta_en=matrix(0,nrow=N,ncol = p)
+for(i in 1:N){
+  # drawing data
+  data=generate_data(n)
+  X=data$X
+  Y=data$Y
+  
+  beta_en[i,]=elastic_net(X,Y,lambda = best_lambda)
+}
+
+print(apply(beta_en,2,mean)-beta)
 ```
 
+By the weak law of large numbers, $$\frac{1}{N}\sum_{i=1}^N \hat{\beta}^{(i)}_{\textbf{EN}}\xrightarrow{p} E[\hat{\beta}_{\textbf{EN}}]$$. We can see from the results that all the 0 coefficients are close to $0$ as expected. The 5 non-zero coefficients, however, are off by about $1-2$ units. This is expected because from the penalization, the terms are shrinking smaller in order to simplify the model. This does raise a potential issue with penalization which is that sometimes, it can shrink the coefficients below what their true values are. As a result, we may under fit the data.

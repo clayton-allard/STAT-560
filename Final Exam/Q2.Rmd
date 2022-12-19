@@ -8,6 +8,7 @@ date: "2022-12-16"
 # Initializing parameters
 set.seed(320733099)
 
+# Generating the random variables
 rg <- function(n){
   t = runif(n)
   sin(t)*exp(-3*t^2)/(1+t)
@@ -19,7 +20,44 @@ alpha=0.05
 n=500
 ```
 
+The goal is to find the minimum value $n \in \mathbb{N}$ such that $\mathbb{P}(|\hat{I}_n - I| > 0.01) \leq 0.05$. In order to do this, we can observe that since $\hat{I}_n$ is unbiased for $I$, $$\frac{\hat{I}_n - I}{\left(\frac{S}{\sqrt{n}}\right)} \sim \mathcal{N}(0,1)$$ by the Central Limit Theorem with $S$ being the sample standard deviation. So then we have $$\begin{align}\mathbb{P}(|\hat{I}_n - I| > 0.01) &\leq 0.05\\
+1-\mathbb{P}(-0.01 < \hat{I}_n - I < 0.01) &\leq 0.05\\
+1-\mathbb{P}\left(\frac{-0.01}{\frac{S}{\sqrt{n}}} < \frac{\hat{I}_n - I}{\frac{S}{\sqrt{n}}} < \frac{0.01}{\frac{S}{\sqrt{n}}}\right) &\leq 0.05\\
+\tag{Z is a standard normal}1-\mathbb{P}\left(\frac{-0.01\sqrt{n})}{S} < Z < \frac{0.01\sqrt{n}}{S}\right) &\leq 0.05\\
+2*\mathbb{P}\left( Z > \frac{0.01\sqrt{n}}{S}\right) &\leq 0.05\\
+\mathbb{P}\left( Z > \frac{0.01\sqrt{n}}{S}\right) &\leq 0.025\\
+\mathbb{P}\left( Z < \frac{0.01\sqrt{n}}{S}\right) &\leq 0.975\\
+\frac{0.01\sqrt{n}}{S} &\geq \Phi^{-1}(0.975)\\
+n &\geq \left(\frac{S\cdot \Phi^{-1}(0.975)}{0.01}\right)^2
+\end{align}$$ where we can double since $Z$ is symmetric. First, we will do a simulation by running the $I$ distribution with $n=500$ samples and we'll obtain the sample variance. Then we will use that to calculate the best estimate for $n$ given the equation above. We will take the ceiling of whatever the estimate comes out to be. One issue is that we do not know what the true mean for $I$ is. However, we do know that $\frac{1}{n}\sum_{i=1}^n I_i \xrightarrow{p} E[I]$ by the weak law of large numbers. Therefore, we can let the sample mean be our estimate for $E[I]$.
+
 ```{r}
-mean(rg(500))
+samp = rg(n)
+mu_est = mean(samp)
+sig_est = sd(samp)
+n_est = ceiling((sig_est*qnorm(1-alpha/2)/k)^2)
+
+data.frame(sample_mean=mu_est,sample_sd=sig_est, n=n_est)
+```
+After taking $500$ samples, we get an estimate of $\hat{I}_n\approx 0.108$ and $s\approx 0.0538$. Then we compute the most suitable $n$ to be $n \approx 112$. Now we can run $N=10000$ repetitions of sample sizes $112$ to verify if $\mathbb{P}(|\hat{I}_n - I| > 0.01) \leq 0.05$. We know that $E[\hat_{I}_n]=I$. However, we do not know what the true $I$ is. Therefore, we can approximate it with the sample mean. It is worthy of note that using the sample mean will not be perfectly representative. If we use the estimate above `mu_est`, we expect to get an over-estimate because of the variance in $\hat{I}_n$. It will be slightly off of $I$ which leaves more room for the difference to be greater than $0.01$. On the other hand, if we compute the sample mean for the data we are running the tests on `mean_of_samples`, we expect to get an underestimate. This is due to the fact that the sample mean has the least variance from the sampled points.
+
+Taking all of this into account, I'd say this calculation is a success if `mu_est` is slightly greater than $0.05$ and if `mean_of_samples` is slightly less than $0.05$.
+
+```{r}
+# running the samples
+samp_means = rep(0,N)
+for(i in 1:N){
+  I_n = rg(n_est)
+  samp_means[i] = mean(I_n)
+}
+# taking mean of sample means to get an approximate value for the true mean.
+mean_of_samples = mean(samp_means)
+
+# show the proportion with two different estimates.
+predetermined=length(which(abs(samp_means - mu_est) > k))/N
+from_samples=length(which(abs(samp_means - mean_of_samples) > k))/N
+
+data.frame(prior_estimate=predetermined, mean_of_samples=from_samples)
 ```
 
+By comparing to the sample mean of a separate sample `mu_est`, we get that a proportion of $0.0742$ samples outside the range. By comparing to the sample mean of the test samples, we get a proportion of $0.0447$ samples outside the range. These results are exactly what I expected with the way the sample means are calculated.
